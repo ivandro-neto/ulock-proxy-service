@@ -87,4 +87,6 @@ app.MapGet("health", () => "API is healthy");
 
 app.MapReverseProxy();
 
+app.UseHttpsRedirection();
+
 app.Run();
