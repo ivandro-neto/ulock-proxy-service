@@ -5,39 +5,42 @@ namespace API;
 
 public class YarpConfigurationHelper
 {
-     private readonly DynamicConfigProvider _provider;
+    private readonly DynamicConfigProvider _provider;
+
+    private readonly List<RouteConfig> _routes = new();
+    private readonly List<ClusterConfig> _clusters = new();
 
     public YarpConfigurationHelper(DynamicConfigProvider provider)
     {
         _provider = provider;
     }
 
-    public void AddApp(string appName, string host, string backend)
+    public void AddApp(string appName, string host, string backendAddress)
     {
-        var routes = _provider.GetConfig().Routes.ToList();
-        var clusters = _provider.GetConfig().Clusters.ToList();
-
-        routes.Add(new RouteConfig
+        var route = new RouteConfig()
         {
-            RouteId = $"{appName}_route",
-            ClusterId = $"{appName}_cluster",
+            RouteId = $"{appName}-route",
+            ClusterId = $"{appName}-cluster",
             Match = new RouteMatch
             {
                 Hosts = new[] { host },
                 Path = "{**catch-all}"
             }
-        });
+        };
 
-        clusters.Add(new ClusterConfig
+        var cluster = new ClusterConfig()
         {
-            ClusterId = $"{appName}_cluster",
+            ClusterId = $"{appName}-cluster",
             Destinations = new Dictionary<string, DestinationConfig>
             {
-                { "dest1", new DestinationConfig { Address = backend } }
+                { "dest1", new DestinationConfig { Address = backendAddress } }
             }
-        });
+        };
 
-        _provider.Update(routes, clusters);
+        _routes.Add(route);
+        _clusters.Add(cluster);
+
+        _provider.UpdateConfig(_routes, _clusters);
     }
 }
 

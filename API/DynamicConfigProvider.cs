@@ -5,41 +5,38 @@ using Yarp.ReverseProxy.Configuration;
 
 namespace API;
 
-public class DynamicProxyConfig : IProxyConfig
-{
-    public DynamicProxyConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
-    {
-        Routes = routes;
-        Clusters = clusters;
-        ChangeToken = new CancellationChangeToken(new CancellationToken());
-    }
-
-    public IReadOnlyList<RouteConfig> Routes { get; }
-
-    public IReadOnlyList<ClusterConfig> Clusters { get; }
-
-    public IChangeToken ChangeToken { get; }
-}
 public class DynamicConfigProvider : IProxyConfigProvider
 {
+    private volatile InMemoryConfig _config;
     private readonly object _lock = new();
-    private List<RouteConfig> _routes = new();
-    private List<ClusterConfig> _clusters = new();
 
-    private CancellationTokenSource _cts = new();
+    public DynamicConfigProvider()
+    {
+        _config = new InMemoryConfig(new List<RouteConfig>(), new List<ClusterConfig>());
+    }
 
-    public IProxyConfig GetConfig() =>
-        new DynamicProxyConfig(_routes, _clusters);
+    // Este é chamado pelo YARP
+    public IProxyConfig GetConfig() => _config;
 
-    public void Update(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
+    public void UpdateConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
     {
         lock (_lock)
         {
-            _routes = routes.ToList();
-            _clusters = clusters.ToList();
-
-            _cts.Cancel();               // avisa YARP que houve update
-            _cts = new CancellationTokenSource();
+            _config = new InMemoryConfig(routes, clusters);
         }
+    }
+
+    private class InMemoryConfig : IProxyConfig
+    {
+        public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
+        {
+            Routes = routes;
+            Clusters = clusters;
+            ChangeToken = new CancellationChangeToken(new CancellationToken());
+        }
+
+        public IReadOnlyList<RouteConfig> Routes { get; }
+        public IReadOnlyList<ClusterConfig> Clusters { get; }
+        public IChangeToken ChangeToken { get; }
     }
 }
