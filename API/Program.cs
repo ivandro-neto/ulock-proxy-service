@@ -50,7 +50,7 @@ app.Use(async (context, next) =>
     if (tokenCookie is null && !isCallback)
     {
         var returnUrl = Uri.EscapeDataString($"https://{context.Request.Host}{context.Request.Path}{context.Request.QueryString}");
-        context.Response.Redirect($"http://10.11.1.195:5032?returnUrl={returnUrl}");
+        context.Response.Redirect($"http://10.11.1.195:5032/auth?returnUrl={returnUrl}");
         return;
     }
 
