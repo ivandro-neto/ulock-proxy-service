@@ -5,41 +5,41 @@ using Yarp.ReverseProxy.Configuration;
 
 namespace API;
 
-public class DynamicConfigProvider : IProxyConfigProvider
+public class DynamicProxyConfig : IProxyConfig
 {
-    private InMemoryConfig _config;
-
-    public DynamicConfigProvider()
-    {
-        _config = new InMemoryConfig(
-            new List<RouteConfig>(),
-            new List<ClusterConfig>()
-        );
-    }
-
-    public IProxyConfig GetConfig() => _config;
-
-    public void Update(IEnumerable<RouteConfig> routes, IEnumerable<ClusterConfig> clusters)
-    {
-        var newChangeToken = new CancellationChangeToken(new CancellationTokenSource().Token);
-
-        _config = new InMemoryConfig(routes.ToList(), clusters.ToList(), newChangeToken);
-    }
-}
-
-public class InMemoryConfig : IProxyConfig
-{
-    public InMemoryConfig(
-        IReadOnlyList<RouteConfig> routes,
-        IReadOnlyList<ClusterConfig> clusters,
-        IChangeToken? changeToken = null)
+    public DynamicProxyConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
     {
         Routes = routes;
         Clusters = clusters;
-        ChangeToken = changeToken ?? new CancellationChangeToken(new CancellationToken());
+        ChangeToken = new CancellationChangeToken(new CancellationToken());
     }
 
     public IReadOnlyList<RouteConfig> Routes { get; }
+
     public IReadOnlyList<ClusterConfig> Clusters { get; }
+
     public IChangeToken ChangeToken { get; }
+}
+public class DynamicConfigProvider : IProxyConfigProvider
+{
+    private readonly object _lock = new();
+    private List<RouteConfig> _routes = new();
+    private List<ClusterConfig> _clusters = new();
+
+    private CancellationTokenSource _cts = new();
+
+    public IProxyConfig GetConfig() =>
+        new DynamicProxyConfig(_routes, _clusters);
+
+    public void Update(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
+    {
+        lock (_lock)
+        {
+            _routes = routes.ToList();
+            _clusters = clusters.ToList();
+
+            _cts.Cancel();               // avisa YARP que houve update
+            _cts = new CancellationTokenSource();
+        }
+    }
 }
