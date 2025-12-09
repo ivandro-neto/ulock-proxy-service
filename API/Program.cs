@@ -37,9 +37,8 @@ builder.Services.AddSingleton<DynamicConfigProvider>();
 builder.Services.AddSingleton<IProxyConfigProvider>(sp =>
     sp.GetRequiredService<DynamicConfigProvider>());
 
-
 builder.Services.AddSingleton<YarpConfigurationHelper>();
-// Add Reverse Proxy
+
 builder.Services.AddReverseProxy();
 
 
@@ -98,11 +97,11 @@ app.MapGet("/auth/callback", async (context) =>
 });
 
 app.MapGet("health", () => "API is healthy");
-app.MapPost("add-route",
+app.MapPost("/add-route",
     (YarpConfigurationHelper yarp, [FromBody] AddRouteDto dto) =>
 {
     yarp.AddApp(dto.AppName, dto.Host, dto.BackendAddress);
-    return Results.Ok();
+    return Results.Ok($"Added: {dto.AppName}");
 });
 app.MapReverseProxy();
 

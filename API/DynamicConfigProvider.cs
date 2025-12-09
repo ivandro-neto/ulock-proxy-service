@@ -7,36 +7,47 @@ namespace API;
 
 public class DynamicConfigProvider : IProxyConfigProvider
 {
-    private volatile InMemoryConfig _config;
+    private volatile InMemoryConfig _currentConfig;
     private readonly object _lock = new();
 
     public DynamicConfigProvider()
     {
-        _config = new InMemoryConfig(new List<RouteConfig>(), new List<ClusterConfig>());
+        _currentConfig = new InMemoryConfig(new List<RouteConfig>(), new List<ClusterConfig>());
     }
 
-    // Este é chamado pelo YARP
-    public IProxyConfig GetConfig() => _config;
+    public IProxyConfig GetConfig() => _currentConfig;
 
-    public void UpdateConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
+    public void Update(List<RouteConfig> routes, List<ClusterConfig> clusters)
     {
         lock (_lock)
         {
-            _config = new InMemoryConfig(routes, clusters);
+            var oldConfig = _currentConfig;
+
+            _currentConfig = new InMemoryConfig(routes, clusters);
+
+            oldConfig.SignalChange();
         }
     }
 
     private class InMemoryConfig : IProxyConfig
     {
+        private readonly CancellationTokenSource _cts = new();
+
         public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
         {
             Routes = routes;
             Clusters = clusters;
-            ChangeToken = new CancellationChangeToken(new CancellationToken());
         }
 
         public IReadOnlyList<RouteConfig> Routes { get; }
+
         public IReadOnlyList<ClusterConfig> Clusters { get; }
-        public IChangeToken ChangeToken { get; }
+
+        public IChangeToken ChangeToken => new CancellationChangeToken(_cts.Token);
+
+        public void SignalChange()
+        {
+            _cts.Cancel();
+        }
     }
 }

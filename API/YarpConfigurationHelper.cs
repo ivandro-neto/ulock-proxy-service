@@ -7,20 +7,22 @@ public class YarpConfigurationHelper
 {
     private readonly DynamicConfigProvider _provider;
 
-    private readonly List<RouteConfig> _routes = new();
-    private readonly List<ClusterConfig> _clusters = new();
+    private readonly List<RouteConfig> routes = new();
+    private readonly List<ClusterConfig> clusters = new();
 
     public YarpConfigurationHelper(DynamicConfigProvider provider)
     {
         _provider = provider;
     }
 
-    public void AddApp(string appName, string host, string backendAddress)
+    public void AddApp(string appName, string host, string backend)
     {
-        var route = new RouteConfig()
+        var clusterId = $"{appName}-cluster";
+
+        var route = new RouteConfig
         {
             RouteId = $"{appName}-route",
-            ClusterId = $"{appName}-cluster",
+            ClusterId = clusterId,
             Match = new RouteMatch
             {
                 Hosts = new[] { host },
@@ -28,19 +30,19 @@ public class YarpConfigurationHelper
             }
         };
 
-        var cluster = new ClusterConfig()
+        var cluster = new ClusterConfig
         {
-            ClusterId = $"{appName}-cluster",
+            ClusterId = clusterId,
             Destinations = new Dictionary<string, DestinationConfig>
             {
-                { "dest1", new DestinationConfig { Address = backendAddress } }
+                { "dest1", new DestinationConfig { Address = backend } }
             }
         };
 
-        _routes.Add(route);
-        _clusters.Add(cluster);
+        routes.Add(route);
+        clusters.Add(cluster);
 
-        _provider.UpdateConfig(_routes, _clusters);
+        _provider.Update(routes, clusters);
     }
 }
 
