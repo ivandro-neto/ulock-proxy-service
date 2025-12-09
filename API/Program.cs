@@ -1,7 +1,10 @@
 using System.Net;
 using System.Text;
+using API;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using Yarp.ReverseProxy.Configuration;
 
 
 
@@ -29,10 +32,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
     });
 
-// Add Reverse Proxy
-builder.Services.AddReverseProxy()
-    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+builder.Services.AddSingleton<DynamicConfigProvider>();
+builder.Services.AddSingleton<IProxyConfigProvider>(sp =>
+    sp.GetRequiredService<DynamicConfigProvider>());
 
+
+builder.Services.AddSingleton<YarpConfigurationHelper>();
+// Add Reverse Proxy
+builder.Services.AddReverseProxy();
 
 
 var app = builder.Build();
@@ -46,7 +53,13 @@ app.Use(async (context, next) =>
 
     var tokenCookie = context.Request.Cookies["test_token"];
     var isCallback = path.StartsWithSegments("/auth/callback");
+    var isAddRoute = path.StartsWithSegments("/add-route");
 
+    if (isAddRoute)
+    {
+        await next();
+        return;
+    }
     if (tokenCookie is null && !isCallback)
     {
         var returnUrl = Uri.EscapeDataString($"https://{context.Request.Host}{context.Request.Path}{context.Request.QueryString}");
@@ -84,7 +97,12 @@ app.MapGet("/auth/callback", async (context) =>
 });
 
 app.MapGet("health", () => "API is healthy");
-
+app.MapPost("add-route",
+    (YarpConfigurationHelper yarp, [FromBody] AddRouteDto dto) =>
+{
+    yarp.AddApp(dto.AppName, dto.Host, dto.BackendAddress);
+    return Results.Ok();
+});
 app.MapReverseProxy();
 
 app.UseHttpsRedirection();
