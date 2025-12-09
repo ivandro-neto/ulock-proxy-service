@@ -16,6 +16,7 @@ public class YarpConfigurationHelper
 
     public void AddApp(string appName, string host, string backendAddress)
     {
+        // cria rota
         var route = new RouteConfig
         {
             RouteId = $"{appName}Route",
@@ -27,19 +28,24 @@ public class YarpConfigurationHelper
             }
         };
 
+        // cria cluster
         var cluster = new ClusterConfig
         {
             ClusterId = $"{appName}Cluster",
             Destinations = new Dictionary<string, DestinationConfig>
             {
-                ["dest1"] = new DestinationConfig { Address = backendAddress }
+                { "dest1", new DestinationConfig { Address = backendAddress } }
             }
         };
 
-        _routes.Add(route);
-        _clusters.Add(cluster);
+        // adiciona às listas existentes
+        var current = _provider.GetConfig();
 
-        _provider.Update(_routes, _clusters);
+        var newRoutes = current.Routes.Concat(new[] { route }).ToList();
+        var newClusters = current.Clusters.Concat(new[] { cluster }).ToList();
+
+        _provider.Update(newRoutes, newClusters);
+
     }
 }
 
